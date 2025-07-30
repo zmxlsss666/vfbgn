@@ -3,7 +3,7 @@ package com.example.saltmusiccontroller
 import android.util.Log
 import com.example.saltmusiccontroller.model.NowPlaying
 import com.example.saltmusiccontroller.model.ApiResponse
-import com.example.saltmusiccontrollercontroller.util.Constants
+import com.example.saltmusiccontroller.util.Constants  // 修复包名错误
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.*
@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
 class MusicController {
     private val TAG = "MusicController"
     var currentIp: String? = null
-    var currentPort: Int = Constants.DEFAULT_PORT // 默认端口35373
+    var currentPort: Int = Constants.DEFAULT_PORT  // 已修复常量引用
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
@@ -44,7 +44,6 @@ class MusicController {
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
                         val responseBody = response.body?.string()
-                        // 验证响应是否包含成功状态和必要字段
                         val isValid = !responseBody.isNullOrEmpty() && 
                                       responseBody.contains("status") && 
                                       responseBody.contains("title")
@@ -78,7 +77,7 @@ class MusicController {
                 
                 client.newCall(request).enqueue(object : Callback {
                     override fun onFailure(call: Call, e: IOException) {
-                        Log.e(TAG, "获取播放信息失败: ${e.message}")
+                        Log.e(TAG, "获取取播放信息失败: ${e.message}")
                         callback(null)
                     }
 
@@ -87,7 +86,7 @@ class MusicController {
                             val json = response.body?.string()
                             Log.d(TAG, "播放信息响应: $json")
                             try {
-                                val nowPlaying = Constants.gson.fromJson(json, NowPlaying::class.java)
+                                val nowPlaying = Constants.gson.fromJson(json, NowPlaying::class.java)  // 已修复常量引用
                                 callback(nowPlaying)
                             } catch (e: Exception) {
                                 Log.e(TAG, "解析播放信息失败: ${e.message}")
@@ -157,7 +156,6 @@ class MusicController {
 
     /**
      * 发送命令的通用方法
-     * @param endpoint API端点路径（与提供的文档完全一致）
      */
     private suspend fun sendCommand(endpoint: String, callback: (ApiResponse?) -> Unit) {
         if (currentIp.isNullOrEmpty()) {
@@ -167,7 +165,6 @@ class MusicController {
 
         withContext(Dispatchers.IO) {
             try {
-                // 使用提供的API路径，不做任何额外修改
                 val url = "http://$currentIp:$currentPort$endpoint"
                 val request = Request.Builder()
                     .url(url)
@@ -186,7 +183,7 @@ class MusicController {
                             val json = response.body?.string()
                             Log.d(TAG, "命令响应 ($endpoint): $json")
                             try {
-                                val apiResponse = Constants.gson.fromJson(json, ApiResponse::class.java)
+                                val apiResponse = Constants.gson.fromJson(json, ApiResponse::class.java)  // 已修复常量引用
                                 callback(apiResponse)
                             } catch (e: Exception) {
                                 Log.e(TAG, "解析响应失败: ${e.message}")
