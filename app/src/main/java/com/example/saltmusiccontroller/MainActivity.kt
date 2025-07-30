@@ -17,7 +17,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.PreferenceManager
 import com.bumptech.glide.Glide
 import com.example.saltmusiccontroller.model.NowPlaying
-import com.example.saltmusiccontroller.model.SongDetails.SongInfoResponse
+import com.example.saltmusiccontroller.model.SongInfoResponse
 import com.example.saltmusiccontroller.util.Constants
 
 class MainActivity : AppCompatActivity() {
@@ -184,7 +184,7 @@ class MainActivity : AppCompatActivity() {
             tvStatus.text = "已连接到: ${musicController.currentIp}:${musicController.currentPort}"
             
             // 获取歌曲封面和歌词
-            musicController.getSongDetails(nowPlaying.title, nowPlaying.artist) { songInfo ->
+            musicController.getSongDetails(nowPlaying.title, nowPlaying.artist) { songInfo: SongInfoResponse? ->
                 songInfo?.let {
                     loadCoverImage(it.pic)
                 }

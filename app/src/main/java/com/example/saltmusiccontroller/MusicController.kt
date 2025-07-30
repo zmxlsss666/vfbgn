@@ -2,7 +2,7 @@ package com.example.saltmusiccontroller
 
 import com.example.saltmusiccontroller.model.ApiResponse
 import com.example.saltmusiccontroller.model.NowPlaying
-import com.example.saltmusiccontroller.model.SongDetails.SongInfoResponse
+import com.example.saltmusiccontroller.model.SongInfoResponse
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

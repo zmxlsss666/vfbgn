@@ -1,6 +1,7 @@
 package com.example.saltmusiccontroller
 
-import com.example.saltmusiccontroller.model.SongDetails.*
+import com.example.saltmusiccontroller.model.SongInfoResponse
+import com.example.saltmusiccontroller.model.SongSearchResponse
 import com.example.saltmusiccontroller.util.Constants
 import com.google.gson.Gson
 import okhttp3.OkHttpClient
