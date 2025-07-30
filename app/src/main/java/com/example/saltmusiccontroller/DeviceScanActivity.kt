@@ -1,11 +1,15 @@
 package com.example.saltmusiccontroller
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.saltmusiccontroller.adapter.DeviceListAdapter
@@ -18,6 +22,7 @@ class DeviceScanActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
     private val devices = mutableListOf<Device>()
     private lateinit var lanScanner: LanScanner
+    private val REQUEST_PERMISSIONS = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,7 +36,8 @@ class DeviceScanActivity : AppCompatActivity() {
         setupScanner()
         setupListeners()
         
-        startScan()
+        // 检查并请求必要权限
+        checkPermissions()
     }
     
     private fun setupRecyclerView() {
@@ -49,15 +55,42 @@ class DeviceScanActivity : AppCompatActivity() {
     
     private fun setupScanner() {
         lanScanner = LanScanner(this) {
-            if (it.isEmpty()) {
-                showToast("未发现设备")
+            runOnUiThread {
+                if (it.isEmpty()) {
+                    showToast("未发现设备，请确保设备在同一网络")
+                }
             }
         }
     }
     
     private fun setupListeners() {
         btnRescan.setOnClickListener {
-            startScan()
+            checkPermissions { startScan() }
+        }
+    }
+    
+    // 权限检查
+    private fun checkPermissions(onGranted: () -> Unit = {}) {
+        val requiredPermissions = mutableListOf<String>()
+        
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.SCAN_WIFI) 
+            != PackageManager.PERMISSION_GRANTED) {
+            requiredPermissions.add(Manifest.permission.SCAN_WIFI)
+        }
+        
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) 
+            != PackageManager.PERMISSION_GRANTED) {
+            requiredPermissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+        
+        if (requiredPermissions.isNotEmpty()) {
+            ActivityCompat.requestPermissions(
+                this,
+                requiredPermissions.toTypedArray(),
+                REQUEST_PERMISSIONS
+            )
+        } else {
+            onGranted()
         }
     }
     
@@ -69,8 +102,11 @@ class DeviceScanActivity : AppCompatActivity() {
     
     fun addDevice(device: Device) {
         runOnUiThread {
-            devices.add(device)
-            adapter.notifyItemInserted(devices.size - 1)
+            val index = devices.indexOfFirst { it.ipAddress == device.ipAddress }
+            if (index == -1) {
+                devices.add(device)
+                adapter.notifyItemInserted(devices.size - 1)
+            }
         }
     }
     
@@ -82,8 +118,26 @@ class DeviceScanActivity : AppCompatActivity() {
         }
     }
     
-    private fun showToast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    fun showToast(message: String) {
+        runOnUiThread {
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_PERMISSIONS) {
+            val allGranted = grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+            if (allGranted) {
+                startScan()
+            } else {
+                showToast("需要权限才能扫描设备")
+            }
+        }
     }
     
     override fun onBackPressed() {

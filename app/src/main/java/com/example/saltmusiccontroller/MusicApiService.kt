@@ -11,9 +11,10 @@ import java.util.concurrent.TimeUnit
 
 class MusicApiService {
     private val client = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(5, TimeUnit.SECONDS)
-        .writeTimeout(5, TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)  // 延长连接超时
+        .readTimeout(10, TimeUnit.SECONDS)     // 延长读取超时
+        .writeTimeout(10, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)        // 允许重试
         .build()
         
     private val gson = Gson()
@@ -21,7 +22,11 @@ class MusicApiService {
     suspend fun getNowPlaying(ip: String, port: Int): NowPlaying? {
         val url = "http://$ip:$port${Constants.API_NOW_PLAYING}"
         return try {
-            val request = Request.Builder().url(url).build()
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Connection", "close")  // 避免连接复用问题
+                .build()
+                
             client.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     val json = response.body?.string()
@@ -31,6 +36,7 @@ class MusicApiService {
                 }
             }
         } catch (e: IOException) {
+            e.printStackTrace()
             null
         }
     }
@@ -67,7 +73,11 @@ class MusicApiService {
     
     private suspend fun executeRequest(url: String): ApiResponse? {
         return try {
-            val request = Request.Builder().url(url).build()
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Connection", "close")
+                .build()
+                
             client.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     val json = response.body?.string()
@@ -77,6 +87,7 @@ class MusicApiService {
                 }
             }
         } catch (e: IOException) {
+            e.printStackTrace()
             null
         }
     }
