@@ -176,7 +176,7 @@ class DeviceScanActivity : AppCompatActivity() {
         }
     }
 
-    private suspend suspend fun checkDevice(ip: String, port: Int) {
+    private suspend fun checkDevice(ip: String, port: Int) {
         try {
             Socket().use { socket ->
                 socket.connect(InetSocketAddress(ip, port), 2000)  // 2秒超时
