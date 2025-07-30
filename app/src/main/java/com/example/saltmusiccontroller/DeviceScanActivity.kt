@@ -15,6 +15,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay  // 导入协程delay函数
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -33,14 +34,13 @@ class DeviceScanActivity : AppCompatActivity() {
     private lateinit var adapter: ArrayAdapter<String>
     private var isScanning = false
 
-    // 定义所需权限
+    // 修复：移除不存在的SCAN_WIFI权限，使用标准WiFi权限
     private val REQUIRED_PERMISSIONS = arrayOf(
         android.Manifest.permission.ACCESS_WIFI_STATE,
         android.Manifest.permission.CHANGE_WIFI_STATE,
         android.Manifest.permission.ACCESS_NETWORK_STATE,
         android.Manifest.permission.ACCESS_FINE_LOCATION,
-        android.Manifest.permission.ACCESS_COARSE_LOCATION,
-        android.Manifest.permission.SCAN_WIFI // 使用完整权限名称
+        android.Manifest.permission.ACCESS_COARSE_LOCATION
     )
     private val PERMISSION_REQUEST_CODE = 1002
 
@@ -54,6 +54,7 @@ class DeviceScanActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
+        // 修复：确保布局中存在id为list_devices的ListView
         listView = findViewById(R.id.list_devices)
         progressBar = findViewById(R.id.progress_bar)
         tvStatus = findViewById(R.id.tv_status)
@@ -158,11 +159,11 @@ class DeviceScanActivity : AppCompatActivity() {
                 launch {
                     checkDevice(ip, Constants.DEFAULT_PORT)
                 }
-                // 稍微延迟避免网络拥塞
-                delay(10)
+                // 修复：添加协程delay函数的正确引用
+                delay(10)  // 稍微延迟避免网络拥塞
             }
             
-            // 等待所有扫描任务完成后更新UI
+            // 等待所有扫描扫描任务完成后更新UI
             delay(2000)
             withContext(Dispatchers.Main) {
                 if (devices.isEmpty()) {
@@ -175,10 +176,10 @@ class DeviceScanActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun checkDevice(ip: String, port: Int) {
+    private suspend suspend fun checkDevice(ip: String, port: Int) {
         try {
             Socket().use { socket ->
-                socket.connect(InetSocketAddress(ip, port), 2000) // 2秒超时
+                socket.connect(InetSocketAddress(ip, port), 2000)  // 2秒超时
                 if (socket.isConnected) {
                     devices[ip] = port
                     withContext(Dispatchers.Main) {
