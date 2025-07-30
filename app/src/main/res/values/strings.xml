@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Salt Music Controller</string>
+    <string name="song_title">歌曲标题</string>
+    <string name="artist">艺术家</string>
+    <string name="album">专辑</string>
+    <string name="previous_track">上一曲</string>
+    <string name="play_pause">播放/暂停</string>
+    <string name="next_track">下一曲</string>
+    <string name="volume_down">音量减小</string>
+    <string name="volume_up">音量增大</string>
+    <string name="mute">静音</string>
+    <string name="scan_devices">扫描设备</string>
+    <string name="custom_ip">自定义IP</string>
+    <string name="connect_status">未连接设备</string>
+    <string name="rescan">重新扫描</string>
+    <string name="enter_ip_port">输入设备IP和端口</string>
+    <string name="ip_address">IP地址</string>
+    <string name="port">端口</string>
+    <string name="connect">连接</string>
+    <string name="album_cover">专辑封面</string>
+</resources>
+    
