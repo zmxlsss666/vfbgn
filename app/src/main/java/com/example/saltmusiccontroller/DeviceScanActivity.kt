@@ -39,11 +39,10 @@ class DeviceScanActivity : AppCompatActivity() {
     private lateinit var adapter: ArrayAdapter<String>
     private var isScanning = false
     private val client = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(5, TimeUnit.SECONDS)
+        .connectTimeout(8, TimeUnit.SECONDS)  // 延长超时时间
+        .readTimeout(8, TimeUnit.SECONDS)
         .build()
 
-    // 必要权限列表
     private val REQUIRED_PERMISSIONS = arrayOf(
         android.Manifest.permission.INTERNET,
         android.Manifest.permission.ACCESS_WIFI_STATE,
@@ -83,9 +82,8 @@ class DeviceScanActivity : AppCompatActivity() {
                 } catch (e: NumberFormatException) {
                     Constants.DEFAULT_PORT
                 }
-                // 显示连接中状态
                 tvStatus.text = "正在连接 $ip:$port..."
-                // 基于now-playing API验证连接
+                // 关键修改：使用/api/now-playing路径验证连接
                 verifyApiConnection(ip, port) { isSuccessful ->
                     if (isSuccessful) {
                         tvStatus.text = "连接成功"
@@ -95,8 +93,8 @@ class DeviceScanActivity : AppCompatActivity() {
                         setResult(RESULT_OK, intent)
                         finish()
                     } else {
-                        tvStatus.text = "连接失败：无法访问now-playing API"
-                        Toast.makeText(this, "连接失败，请请确保设备API正常", Toast.LENGTH_SHORT).show()
+                        tvStatus.text = "连接失败：无法访问/api/now-playing"
+                        Toast.makeText(this, "连接失败，请确认设备API路径正确", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -104,15 +102,15 @@ class DeviceScanActivity : AppCompatActivity() {
     }
 
     /**
-     * 验证是否能成功访问设备的now-playing API
+     * 验证是否能成功访问设备的/api/now-playing API
      * 只有API返回有效响应才算连接成功
      */
     private fun verifyApiConnection(ip: String, port: Int, callback: (Boolean) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
             var isSuccessful = false
             try {
-                // 构建now-playing API地址（根据实际设备API路径调整）
-                val url = "http://$ip:$port/now-playing"
+                // 关键修改：API路径更新为/api/now-playing
+                val url = "http://$ip:$port/api/now-playing"
                 Log.d(TAG, "验证API连接: $url")
                 
                 val request = Request.Builder()
@@ -122,7 +120,7 @@ class DeviceScanActivity : AppCompatActivity() {
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
                         val responseBody = response.body?.string()
-                        // 验证响应不为空且包含基本播放信息字段
+                        // 验证响应内容是否有效
                         if (!responseBody.isNullOrEmpty() && 
                             (responseBody.contains("title") || 
                              responseBody.contains("artist") || 
@@ -130,7 +128,7 @@ class DeviceScanActivity : AppCompatActivity() {
                             isSuccessful = true
                             Log.d(TAG, "API响应有效: $responseBody")
                         } else {
-                            Log.e(TAG, "API响应无效: $responseBody")
+                            Log.e(TAG, "API响应无效(内容不完整): ${responseBody?.take(50)}...")
                         }
                     } else {
                         Log.e(TAG, "API请求失败，状态码: ${response.code}")
@@ -218,7 +216,6 @@ class DeviceScanActivity : AppCompatActivity() {
                 if (ip == localIp) continue  // 跳过自身
                 
                 launch {
-                    // 扫描阶段仅检查端口开放，连接阶段再验证API
                     checkPortOpen(ip, Constants.DEFAULT_PORT)
                 }
                 delay(10)  // 控制扫描速度
