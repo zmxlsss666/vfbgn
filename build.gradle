@@ -3,10 +3,6 @@ buildscript {
     ext {
         compose_version = '1.4.3'
     }
-    repositories {
-        google()
-        mavenCentral()
-    }
     dependencies {
         classpath 'com.android.tools.build:gradle:7.4.2'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.0"
@@ -17,11 +13,7 @@ buildscript {
 }
 
 allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url "https://jitpack.io" }
-    }
+    // 移除此处的仓库配置，已在settings.gradle中配置
 }
 
 task clean(type: Delete) {
