@@ -3,7 +3,8 @@ package com.example.saltmusiccontroller
 import android.util.Log
 import com.example.saltmusiccontroller.model.NowPlaying
 import com.example.saltmusiccontroller.model.ApiResponse
-import com.example.saltmusiccontroller.util.Constants  // 修复包名错误
+import com.example.saltmusiccontroller.util.Constants
+import com.google.gson.Gson  // 导入Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.*
@@ -13,7 +14,9 @@ import java.util.concurrent.TimeUnit
 class MusicController {
     private val TAG = "MusicController"
     var currentIp: String? = null
-    var currentPort: Int = Constants.DEFAULT_PORT  // 已修复常量引用
+    var currentPort: Int = Constants.DEFAULT_PORT
+    // 直接创建Gson实例，避免依赖Constants
+    private val gson = Gson()
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
@@ -21,18 +24,12 @@ class MusicController {
         .retryOnConnectionFailure(true)
         .build()
 
-    /**
-     * 设置目标设备的IP和端口
-     */
     fun setDevice(ip: String, port: Int) {
         currentIp = ip
         currentPort = port
         Log.d(TAG, "已设置设备: $ip:$port")
     }
 
-    /**
-     * 通过访问/api/now-playing验证连接有效性
-     */
     suspend fun verifyConnection(): Boolean {
         if (currentIp.isNullOrEmpty()) return false
         
@@ -60,10 +57,6 @@ class MusicController {
         }
     }
 
-    /**
-     * 1. 获取当前播放信息
-     * API: GET /api/now-playing
-     */
     suspend fun getNowPlaying(callback: (NowPlaying?) -> Unit) {
         if (currentIp.isNullOrEmpty()) {
             callback(null)
@@ -77,7 +70,7 @@ class MusicController {
                 
                 client.newCall(request).enqueue(object : Callback {
                     override fun onFailure(call: Call, e: IOException) {
-                        Log.e(TAG, "获取取播放信息失败: ${e.message}")
+                        Log.e(TAG, "获取播放信息失败: ${e.message}")
                         callback(null)
                     }
 
@@ -86,7 +79,8 @@ class MusicController {
                             val json = response.body?.string()
                             Log.d(TAG, "播放信息响应: $json")
                             try {
-                                val nowPlaying = Constants.gson.fromJson(json, NowPlaying::class.java)  // 已修复常量引用
+                                // 使用本地创建的gson实例
+                                val nowPlaying = gson.fromJson(json, NowPlaying::class.java)
                                 callback(nowPlaying)
                             } catch (e: Exception) {
                                 Log.e(TAG, "解析播放信息失败: ${e.message}")
@@ -106,57 +100,30 @@ class MusicController {
         }
     }
 
-    /**
-     * 2. 播放/暂停切换
-     * API: GET /api/play-pause
-     */
     suspend fun togglePlayPause(callback: (ApiResponse?) -> Unit) {
         sendCommand("/api/play-pause", callback)
     }
 
-    /**
-     * 3. 下一曲
-     * API: GET /api/next-track
-     */
     suspend fun nextTrack(callback: (ApiResponse?) -> Unit) {
         sendCommand("/api/next-track", callback)
     }
 
-    /**
-     * 4. 上一曲
-     * API: GET /api/previous-track
-     */
     suspend fun previousTrack(callback: (ApiResponse?) -> Unit) {
         sendCommand("/api/previous-track", callback)
     }
 
-    /**
-     * 5. 音量增加
-     * API: GET /api/volume/up
-     */
     suspend fun volumeUp(callback: (ApiResponse?) -> Unit) {
         sendCommand("/api/volume/up", callback)
     }
 
-    /**
-     * 6. 音量减少
-     * API: GET /api/volume/down
-     */
     suspend fun volumeDown(callback: (ApiResponse?) -> Unit) {
         sendCommand("/api/volume/down", callback)
     }
 
-    /**
-     * 7. 静音切换
-     * API: GET /api/mute
-     */
     suspend fun toggleMute(callback: (ApiResponse?) -> Unit) {
         sendCommand("/api/mute", callback)
     }
 
-    /**
-     * 发送命令的通用方法
-     */
     private suspend fun sendCommand(endpoint: String, callback: (ApiResponse?) -> Unit) {
         if (currentIp.isNullOrEmpty()) {
             callback(null)
@@ -183,7 +150,8 @@ class MusicController {
                             val json = response.body?.string()
                             Log.d(TAG, "命令响应 ($endpoint): $json")
                             try {
-                                val apiResponse = Constants.gson.fromJson(json, ApiResponse::class.java)  // 已修复常量引用
+                                // 使用本地创建的gson实例
+                                val apiResponse = gson.fromJson(json, ApiResponse::class.java)
                                 callback(apiResponse)
                             } catch (e: Exception) {
                                 Log.e(TAG, "解析响应失败: ${e.message}")
