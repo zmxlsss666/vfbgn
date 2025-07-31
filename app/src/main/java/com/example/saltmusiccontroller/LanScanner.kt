@@ -1,4 +1,3 @@
-
 package com.example.saltmusiccontroller
 
 import android.util.Log
@@ -17,7 +16,6 @@ interface ScanCallback {
     fun addDevice(ip: String, port: Int)
 }
 
-// 修复：移除未使用的context参数
 class LanScanner(private val callback: ScanCallback) {
     private var isScanning = false
     private val TAG = "LanScanner"
