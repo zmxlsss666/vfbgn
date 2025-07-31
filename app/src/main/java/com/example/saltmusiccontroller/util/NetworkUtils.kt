@@ -1,4 +1,3 @@
-
 package com.example.saltmusiccontroller.util
 
 import android.content.Context
@@ -11,7 +10,6 @@ import java.util.Enumeration
 
 object NetworkUtils {
 
-    // 修复：使用新API替代过时方法获取IP地址
     fun getLocalIpAddress(context: Context): String {
         // Android 10及以上使用新方法
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -33,7 +31,7 @@ object NetworkUtils {
             return ""
         }
 
-        // 低版本兼容（标记过时方法）
+        // 低版本兼容
         @Suppress("DEPRECATION")
         val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
         @Suppress("DEPRECATION")
@@ -42,9 +40,7 @@ object NetworkUtils {
         return android.text.format.Formatter.formatIpAddress(wifiInfo.ipAddress)
     }
 
-    // 修复：处理nullable和类型不匹配
     fun getSubnet(ipAddress: String?): String {
-        // 确保IP地址不为空
         val safeIp = ipAddress ?: return ""
         val parts = safeIp.split(".")
         return if (parts.size >= 3) {
@@ -54,7 +50,6 @@ object NetworkUtils {
         }
     }
 
-    // 检查网络是否可用
     fun isNetworkAvailable(context: Context): Boolean {
         val connectivityManager = context.getSystemService(
             Context.CONNECTIVITY_SERVICE
