@@ -1,4 +1,3 @@
-
 package com.example.saltmusiccontroller
 
 import android.content.Intent
@@ -15,6 +14,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.activity.OnBackPressedCallback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -43,11 +43,13 @@ class DeviceScanActivity : AppCompatActivity(), ScanCallback {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_device_scan)
         
-        // 修复：使用新的返回键处理方式替代onBackPressed()
-        onBackPressedDispatcher.addCallback(this) {
-            stopScan()
-            finish()
-        }
+        // 修复返回键回调实现
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                stopScan()
+                finish()
+            }
+        })
         
         initViews()
         setupAdapter()
