@@ -1,3 +1,4 @@
+
 package com.example.saltmusiccontroller
 
 import android.content.Intent
@@ -25,11 +26,8 @@ import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
 import com.example.saltmusiccontroller.util.NetworkUtils
 import com.example.saltmusiccontroller.util.Constants
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.util.concurrent.TimeUnit
 
-class DeviceScanActivity : AppCompatActivity() {
+class DeviceScanActivity : AppCompatActivity(), ScanCallback {
     private val TAG = "DeviceScanActivity"
     private lateinit var listView: ListView
     private lateinit var progressBar: ProgressBar
@@ -38,24 +36,18 @@ class DeviceScanActivity : AppCompatActivity() {
     private val devices = ConcurrentHashMap<String, Int>()
     private lateinit var adapter: ArrayAdapter<String>
     private var isScanning = false
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(8, TimeUnit.SECONDS)  // 延长超时时间
-        .readTimeout(8, TimeUnit.SECONDS)
-        .build()
-
-    private val REQUIRED_PERMISSIONS = arrayOf(
-        android.Manifest.permission.INTERNET,
-        android.Manifest.permission.ACCESS_WIFI_STATE,
-        android.Manifest.permission.CHANGE_WIFI_STATE,
-        android.Manifest.permission.ACCESS_NETWORK_STATE,
-        android.Manifest.permission.ACCESS_FINE_LOCATION,
-        android.Manifest.permission.ACCESS_COARSE_LOCATION
-    )
-    private val PERMISSION_REQUEST_CODE = 1002
+    private var lanScanner: LanScanner? = null
+    private val REQUEST_LOCATION_PERMISSION = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_device_scan)
+        
+        // 修复：使用新的返回键处理方式替代onBackPressed()
+        onBackPressedDispatcher.addCallback(this) {
+            stopScan()
+            finish()
+        }
         
         initViews()
         setupAdapter()
@@ -69,76 +61,8 @@ class DeviceScanActivity : AppCompatActivity() {
         btnRescan = findViewById(R.id.btn_rescan)
         
         btnRescan.setOnClickListener {
-            checkPermissionsAndScan()
-        }
-        
-        listView.setOnItemClickListener { _, _, position, _ ->
-            val item = adapter.getItem(position) ?: return@setOnItemClickListener
-            val parts = item.split(":")
-            if (parts.size >= 2) {
-                val ip = parts[0]
-                val port = try {
-                    parts[1].toInt()
-                } catch (e: NumberFormatException) {
-                    Constants.DEFAULT_PORT
-                }
-                tvStatus.text = "正在连接 $ip:$port..."
-                // 关键修改：使用/api/now-playing路径验证连接
-                verifyApiConnection(ip, port) { isSuccessful ->
-                    if (isSuccessful) {
-                        tvStatus.text = "连接成功"
-                        val intent = Intent()
-                        intent.putExtra("ip", ip)
-                        intent.putExtra("port", port)
-                        setResult(RESULT_OK, intent)
-                        finish()
-                    } else {
-                        tvStatus.text = "连接失败：无法访问/api/now-playing"
-                        Toast.makeText(this, "连接失败，请确认设备API路径正确", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * 验证是否能成功访问设备的/api/now-playing API
-     * 只有API返回有效响应才算连接成功
-     */
-    private fun verifyApiConnection(ip: String, port: Int, callback: (Boolean) -> Unit) {
-        CoroutineScope(Dispatchers.IO).launch {
-            var isSuccessful = false
-            try {
-                // 关键修改：API路径更新为/api/now-playing
-                val url = "http://$ip:$port/api/now-playing"
-                Log.d(TAG, "验证API连接: $url")
-                
-                val request = Request.Builder()
-                    .url(url)
-                    .build()
-
-                client.newCall(request).execute().use { response ->
-                    if (response.isSuccessful) {
-                        val responseBody = response.body?.string()
-                        // 验证响应内容是否有效
-                        if (!responseBody.isNullOrEmpty() && 
-                            (responseBody.contains("title") || 
-                             responseBody.contains("artist") || 
-                             responseBody.contains("status"))) {
-                            isSuccessful = true
-                            Log.d(TAG, "API响应有效: $responseBody")
-                        } else {
-                            Log.e(TAG, "API响应无效(内容不完整): ${responseBody?.take(50)}...")
-                        }
-                    } else {
-                        Log.e(TAG, "API请求失败，状态码: ${response.code}")
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "API请求异常: ${e.message}")
-            }
-            withContext(Dispatchers.Main) {
-                callback(isSuccessful)
+            if (!isScanning) {
+                startScan()
             }
         }
     }
@@ -146,28 +70,56 @@ class DeviceScanActivity : AppCompatActivity() {
     private fun setupAdapter() {
         adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
         listView.adapter = adapter
+        listView.setOnItemClickListener { _, _, position, _ ->
+            val item = adapter.getItem(position) ?: return@setOnItemClickListener
+            val ip = item.split(":")[0]
+            val port = item.split(":")[1].toIntOrNull() ?: Constants.DEFAULT_PORT
+            
+            val intent = Intent(this, MainActivity::class.java)
+            intent.putExtra("ip", ip)
+            intent.putExtra("port", port)
+            startActivity(intent)
+        }
     }
 
     private fun checkPermissionsAndScan() {
-        if (hasAllPermissions()) {
-            startScan()
+        if (ContextCompat.checkSelfPermission(this, 
+                android.Manifest.permission.ACCESS_FINE_LOCATION) 
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
+                REQUEST_LOCATION_PERMISSION
+            )
         } else {
-            requestPermissions()
+            startScan()
         }
     }
 
-    private fun hasAllPermissions(): Boolean {
-        return REQUIRED_PERMISSIONS.all { permission ->
-            ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+    private fun startScan() {
+        devices.clear()
+        adapter.clear()
+        tvStatus.text = "准备扫描..."
+        progressBar.visibility = View.VISIBLE
+        
+        val ipAddress = NetworkUtils.getLocalIpAddress(this)
+        if (ipAddress.isEmpty()) {
+            tvStatus.text = "无法获取本地IP"
+            progressBar.visibility = View.GONE
+            return
         }
+        
+        val subnet = NetworkUtils.getSubnet(ipAddress)
+        tvStatus.text = "正在扫描 $subnet.1-254 ..."
+        
+        lanScanner = LanScanner(this)
+        lanScanner?.startScan(subnet, Constants.DEFAULT_PORT)
     }
 
-    private fun requestPermissions() {
-        ActivityCompat.requestPermissions(
-            this,
-            REQUIRED_PERMISSIONS,
-            PERMISSION_REQUEST_CODE
-        )
+    private fun stopScan() {
+        isScanning = false
+        lanScanner?.stopScan()
+        progressBar.visibility = View.GONE
     }
 
     override fun onRequestPermissionsResult(
@@ -176,91 +128,45 @@ class DeviceScanActivity : AppCompatActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            if (grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+        if (requestCode == REQUEST_LOCATION_PERMISSION) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startScan()
             } else {
-                Toast.makeText(this, "需要所有权限才能扫描和连接设备", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "需要位置权限才能扫描设备", Toast.LENGTH_SHORT).show()
+                tvStatus.text = "请授予位置权限"
             }
         }
     }
 
-    private fun startScan() {
-        if (isScanning) return
-        
-        isScanning = true
-        devices.clear()
-        adapter.clear()
-        progressBar.visibility = View.VISIBLE
-        tvStatus.text = "正在扫描设备..."
-        btnRescan.isEnabled = false
-        
-        CoroutineScope(Dispatchers.IO).launch {
-            val localIp = NetworkUtils.getLocalIpAddress(this@DeviceScanActivity)
-            if (localIp.isEmpty()) {
-                withContext(Dispatchers.Main) {
-                    tvStatus.text = "无法获取本地IP，请检查WiFi"
-                    updateScanState(false)
-                }
-                return@launch
-            }
-            
-            val subnet = NetworkUtils.getSubnet(localIp)
-            Log.d(TAG, "开始扫描子网: $subnet.* (本地IP: $localIp)")
-            
-            // 扫描子网内的IP (1-254)
-            for (i in 1..254) {
-                if (!isScanning) break
-                
-                val ip = "$subnet.$i"
-                if (ip == localIp) continue  // 跳过自身
-                
-                launch {
-                    checkPortOpen(ip, Constants.DEFAULT_PORT)
-                }
-                delay(10)  // 控制扫描速度
-            }
-            
-            // 等待扫描完成
-            delay(3000)
-            withContext(Dispatchers.Main) {
-                if (devices.isEmpty()) {
-                    tvStatus.text = "未发现设备，请确保设备开启并在同一网络"
-                } else {
-                    tvStatus.text = "发现 ${devices.size} 台设备（点击连接）"
-                }
-                updateScanState(false)
+    // ScanCallback实现
+    override fun showToast(message: String) {
+        runOnUiThread {
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun updateScanStatus(status: String) {
+        runOnUiThread {
+            tvStatus.text = status
+            if (status == "扫描完成") {
+                progressBar.visibility = View.GONE
             }
         }
     }
 
-    // 扫描阶段仅检查端口是否开放
-    private suspend fun checkPortOpen(ip: String, port: Int) {
-        try {
-            Socket().use { socket ->
-                socket.connect(InetSocketAddress(ip, port), 1000)  // 快速端口检查
-                if (socket.isConnected) {
-                    devices[ip] = port
-                    withContext(Dispatchers.Main) {
-                        adapter.add("$ip:$port")
-                        adapter.notifyDataSetChanged()
-                    }
-                }
+    override fun addDevice(ip: String, port: Int) {
+        val deviceInfo = "$ip:$port"
+        if (!devices.contains(deviceInfo)) {
+            devices[deviceInfo] = port
+            runOnUiThread {
+                adapter.add(deviceInfo)
+                adapter.notifyDataSetChanged()
             }
-        } catch (e: Exception) {
-            // 端口未开放，忽略
         }
     }
 
-    private fun updateScanState(isScanning: Boolean) {
-        this.isScanning = isScanning
-        progressBar.visibility = if (isScanning) View.VISIBLE else View.GONE
-        btnRescan.isEnabled = !isScanning
-    }
-
-    override fun onBackPressed() {
-        isScanning = false
-        super.onBackPressed()
+    override fun onDestroy() {
+        super.onDestroy()
+        stopScan()
     }
 }
-    
