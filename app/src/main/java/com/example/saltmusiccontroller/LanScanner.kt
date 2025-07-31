@@ -1,26 +1,28 @@
+
 package com.example.saltmusiccontroller
 
-import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay  // 导入delay函数
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
 
-// 定义接口用于与Activity通信（解决showToast等方法引用问题）
 interface ScanCallback {
     fun showToast(message: String)
     fun updateScanStatus(status: String)
     fun addDevice(ip: String, port: Int)
 }
 
+// 修复：移除未使用的context参数
 class LanScanner(private val callback: ScanCallback) {
     private var isScanning = false
+    private val TAG = "LanScanner"
 
-    fun startScan(context: Context, subnet: String, port: Int) {
+    fun startScan(subnet: String, port: Int) {
         if (isScanning) return
         isScanning = true
         
@@ -36,17 +38,18 @@ class LanScanner(private val callback: ScanCallback) {
                     launch {
                         checkDevice(ip, port)
                     }
-                    delay(10)  // 修复：添加delay导入
+                    delay(10) // 降低扫描速度，避免网络拥堵
                 }
                 
-                // 扫描结束
+                // 等待所有扫描任务完成
                 delay(2000)
                 withContext(Dispatchers.Main) {
                     callback.updateScanStatus("扫描完成")
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    callback.showToast("扫描出错: ${e.message}")
+                    callback.showToast("扫描出错: ${e.message ?: "未知错误"}")
+                    callback.updateScanStatus("扫描出错")
                 }
             } finally {
                 isScanning = false
@@ -55,17 +58,21 @@ class LanScanner(private val callback: ScanCallback) {
     }
 
     private suspend fun checkDevice(ip: String, port: Int) {
+        if (!isScanning) return
+        
         try {
             Socket().use { socket ->
-                socket.connect(InetSocketAddress(ip, port), 2000)
+                socket.connect(InetSocketAddress(ip, port), 2000) // 2秒超时
                 if (socket.isConnected) {
                     withContext(Dispatchers.Main) {
-                        callback.addDevice(ip, port)  // 通过接口回调添加设备
+                        callback.addDevice(ip, port)
+                        callback.showToast("发现设备: $ip:$port")
                     }
                 }
             }
         } catch (e: IOException) {
-            // 连接失败忽略
+            // 连接失败，忽略
+            Log.d(TAG, "设备不可达: $ip:$port")
         }
     }
 
@@ -73,4 +80,3 @@ class LanScanner(private val callback: ScanCallback) {
         isScanning = false
     }
 }
-    
