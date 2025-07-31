@@ -1,3 +1,4 @@
+
 package com.example.saltmusiccontroller
 
 import android.os.Bundle
@@ -75,38 +76,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupButtonListeners() {
-        // 播放/暂停按钮
         findViewById<Button>(R.id.btn_play_pause).setOnClickListener {
             handlePlayPause()
         }
         
-        // 下一曲按钮
         findViewById<Button>(R.id.btn_next).setOnClickListener {
             handleNextTrack()
         }
         
-        // 上一曲按钮
         findViewById<Button>(R.id.btn_previous).setOnClickListener {
             handlePreviousTrack()
         }
         
-        // 音量控制按钮
         findViewById<Button>(R.id.btn_volume_up).setOnClickListener {
             handleVolumeUp()
         }
+        
         findViewById<Button>(R.id.btn_volume_down).setOnClickListener {
             handleVolumeDown()
         }
         
-        // 静音按钮
         findViewById<Button>(R.id.btn_mute).setOnClickListener {
             handleMuteToggle()
         }
     }
 
-    // 播放/暂停处理 - 修复：确保挂起函数在协程内调用
     private fun handlePlayPause() {
-        lifecycleScope.launch { // 协程作用域
+        lifecycleScope.launch {
             executeWithDeviceCheck { controller ->
                 controller.togglePlayPause { response ->
                     runOnUiThread {
@@ -119,9 +115,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 下一曲处理 - 修复：确保挂起函数在协程内调用
     private fun handleNextTrack() {
-        lifecycleScope.launch { // 协程作用域
+        lifecycleScope.launch {
             executeWithDeviceCheck { controller ->
                 controller.nextTrack { response ->
                     runOnUiThread {
@@ -134,9 +129,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 上一曲处理 - 修复：确保挂起函数在协程内调用
     private fun handlePreviousTrack() {
-        lifecycleScope.launch { // 协程作用域
+        lifecycleScope.launch {
             executeWithDeviceCheck { controller ->
                 controller.previousTrack { response ->
                     runOnUiThread {
@@ -149,7 +143,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 音量增加处理
     private fun handleVolumeUp() {
         lifecycleScope.launch {
             executeWithDeviceCheck { controller ->
@@ -163,7 +156,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 音量减少处理
     private fun handleVolumeDown() {
         lifecycleScope.launch {
             executeWithDeviceCheck { controller ->
@@ -177,7 +169,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 静音切换处理
     private fun handleMuteToggle() {
         lifecycleScope.launch {
             executeWithDeviceCheck { controller ->
@@ -191,12 +182,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 加载当前播放信息
+    // 修复：Elvis运算符使用警告
     private suspend fun loadCurrentPlayingInfo() {
         try {
             musicController?.getNowPlaying { playingInfo ->
                 runOnUiThread {
                     playingInfo?.let {
+                        // 仅在可能为null时使用Elvis运算符
                         tvTitle.text = it.title ?: "未知标题"
                         tvArtist.text = it.artist ?: "未知艺术家"
                         tvStatus.text = if (it.isPlaying) "状态：播放中" else "状态：已暂停"
@@ -207,13 +199,12 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "加载播放信息出错", e)
+            // 已处理null情况，无需额外运算符
             tvStatus.text = "加载失败：${e.message?.take(10)}"
         }
     }
 
-    // 设备连接检查通用方法
     private suspend fun executeWithDeviceCheck(action: suspend (MusicController) -> Unit) {
-        // 注意：这里修改为suspend函数，允许内部调用挂起函数
         val controller = musicController
         if (controller == null || controller.currentIp.isNullOrEmpty()) {
             runOnUiThread { showToast("请先连接设备") }
@@ -260,4 +251,3 @@ class MainActivity : AppCompatActivity() {
         Thread.setDefaultUncaughtExceptionHandler(null)
     }
 }
-    
