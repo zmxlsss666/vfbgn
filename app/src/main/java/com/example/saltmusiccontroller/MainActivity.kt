@@ -13,10 +13,7 @@ import com.example.saltmusiccontroller.model.NowPlaying
 import com.example.saltmusiccontroller.util.Constants
 
 class MainActivity : AppCompatActivity() {
-    // 日志标签
     private val TAG = "MusicMain"
-    
-    // 控制器与视图变量
     private var musicController: MusicController? = null
     private lateinit var tvTitle: TextView
     private lateinit var tvArtist: TextView
@@ -24,19 +21,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 全局异常捕获，防止闪退无日志
         setupGlobalExceptionHandler()
         
         try {
-            // 初始化布局与视图
             setContentView(R.layout.activity_main)
             initViews()
-            
-            // 初始化控制器与设备连接
             initMusicController()
             connectToDeviceFromIntent()
-            
-            // 设置按钮监听
             setupButtonListeners()
         } catch (e: Exception) {
             Log.e(TAG, "初始化失败", e)
@@ -44,37 +35,30 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 初始化视图组件
     private fun initViews() {
         tvTitle = findViewById(R.id.tv_title)
         tvArtist = findViewById(R.id.tv_artist)
         tvStatus = findViewById(R.id.tv_status)
     }
 
-    // 初始化音乐控制器
     private fun initMusicController() {
         musicController = MusicController().apply {
-            // 初始化默认配置
             currentPort = Constants.DEFAULT_PORT
         }
     }
 
-    // 从Intent获取设备信息并连接
     private fun connectToDeviceFromIntent() {
         val deviceIp = intent.getStringExtra("ip")
         val devicePort = intent.getIntExtra("port", Constants.DEFAULT_PORT)
 
-        // 校验IP有效性
         if (deviceIp.isNullOrEmpty() || !isValidIp(deviceIp)) {
             tvStatus.text = "未获取到有效设备，请重新扫描"
             return
         }
 
-        // 连接设备
         musicController?.setDevice(deviceIp, devicePort)
         tvStatus.text = "正在连接 $deviceIp:$devicePort..."
         
-        // 验证连接并加载播放信息
         lifecycleScope.launch {
             try {
                 val isConnected = musicController?.verifyConnection() ?: false
@@ -90,7 +74,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 设置按钮点击事件
     private fun setupButtonListeners() {
         // 播放/暂停按钮
         findViewById<Button>(R.id.btn_play_pause).setOnClickListener {
@@ -121,45 +104,45 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 播放/暂停处理
+    // 播放/暂停处理 - 修复：确保挂起函数在协程内调用
     private fun handlePlayPause() {
-        executeWithDeviceCheck { controller ->
-            lifecycleScope.launch {
+        lifecycleScope.launch { // 协程作用域
+            executeWithDeviceCheck { controller ->
                 controller.togglePlayPause { response ->
                     runOnUiThread {
                         response?.let { showToast(it.message) } 
                             ?: showToast("操作失败")
-                        loadCurrentPlayingInfo()
+                        lifecycleScope.launch { loadCurrentPlayingInfo() }
                     }
                 }
             }
         }
     }
 
-    // 下一曲处理
+    // 下一曲处理 - 修复：确保挂起函数在协程内调用
     private fun handleNextTrack() {
-        executeWithDeviceCheck { controller ->
-            lifecycleScope.launch {
+        lifecycleScope.launch { // 协程作用域
+            executeWithDeviceCheck { controller ->
                 controller.nextTrack { response ->
                     runOnUiThread {
                         response?.let { showToast(it.message) } 
                             ?: showToast("操作失败")
-                        loadCurrentPlayingInfo()
+                        lifecycleScope.launch { loadCurrentPlayingInfo() }
                     }
                 }
             }
         }
     }
 
-    // 上一曲处理
+    // 上一曲处理 - 修复：确保挂起函数在协程内调用
     private fun handlePreviousTrack() {
-        executeWithDeviceCheck { controller ->
-            lifecycleScope.launch {
+        lifecycleScope.launch { // 协程作用域
+            executeWithDeviceCheck { controller ->
                 controller.previousTrack { response ->
                     runOnUiThread {
                         response?.let { showToast(it.message) } 
                             ?: showToast("操作失败")
-                        loadCurrentPlayingInfo()
+                        lifecycleScope.launch { loadCurrentPlayingInfo() }
                     }
                 }
             }
@@ -168,8 +151,8 @@ class MainActivity : AppCompatActivity() {
 
     // 音量增加处理
     private fun handleVolumeUp() {
-        executeWithDeviceCheck { controller ->
-            lifecycleScope.launch {
+        lifecycleScope.launch {
+            executeWithDeviceCheck { controller ->
                 controller.volumeUp { response ->
                     runOnUiThread {
                         response?.let { showToast(it.message) } 
@@ -182,8 +165,8 @@ class MainActivity : AppCompatActivity() {
 
     // 音量减少处理
     private fun handleVolumeDown() {
-        executeWithDeviceCheck { controller ->
-            lifecycleScope.launch {
+        lifecycleScope.launch {
+            executeWithDeviceCheck { controller ->
                 controller.volumeDown { response ->
                     runOnUiThread {
                         response?.let { showToast(it.message) } 
@@ -196,8 +179,8 @@ class MainActivity : AppCompatActivity() {
 
     // 静音切换处理
     private fun handleMuteToggle() {
-        executeWithDeviceCheck { controller ->
-            lifecycleScope.launch {
+        lifecycleScope.launch {
+            executeWithDeviceCheck { controller ->
                 controller.toggleMute { response ->
                     runOnUiThread {
                         response?.let { showToast(it.message) } 
@@ -229,10 +212,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     // 设备连接检查通用方法
-    private fun executeWithDeviceCheck(action: (MusicController) -> Unit) {
+    private suspend fun executeWithDeviceCheck(action: suspend (MusicController) -> Unit) {
+        // 注意：这里修改为suspend函数，允许内部调用挂起函数
         val controller = musicController
         if (controller == null || controller.currentIp.isNullOrEmpty()) {
-            showToast("请先连接设备")
+            runOnUiThread { showToast("请先连接设备") }
             return
         }
         try {
@@ -241,28 +225,26 @@ class MainActivity : AppCompatActivity() {
             // 忽略协程取消异常
         } catch (e: Exception) {
             Log.e(TAG, "操作执行失败", e)
-            showToast("操作出错：${e.message?.take(10)}")
+            runOnUiThread {
+                showToast("操作出错：${e.message?.take(10)}")
+            }
         }
     }
 
-    // 简单IP验证
     private fun isValidIp(ip: String): Boolean {
         val parts = ip.split(".")
         return parts.size == 4 && parts.all { it.toIntOrNull() in 0..255 }
     }
 
-    // 显示提示信息
     private fun showToast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
-    // 显示错误信息
     private fun showError(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
         tvStatus.text = message
     }
 
-    // 全局异常处理
     private fun setupGlobalExceptionHandler() {
         Thread.setDefaultUncaughtExceptionHandler { _, e ->
             Log.e(TAG, "发生未捕获异常", e)
@@ -274,8 +256,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // 清理资源
         musicController = null
         Thread.setDefaultUncaughtExceptionHandler(null)
     }
 }
+    
