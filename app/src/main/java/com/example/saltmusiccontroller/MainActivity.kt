@@ -1,4 +1,3 @@
-
 package com.example.saltmusiccontroller
 
 import android.os.Bundle
@@ -182,13 +181,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 修复：Elvis运算符使用警告
     private suspend fun loadCurrentPlayingInfo() {
         try {
             musicController?.getNowPlaying { playingInfo ->
                 runOnUiThread {
                     playingInfo?.let {
-                        // 仅在可能为null时使用Elvis运算符
                         tvTitle.text = it.title ?: "未知标题"
                         tvArtist.text = it.artist ?: "未知艺术家"
                         tvStatus.text = if (it.isPlaying) "状态：播放中" else "状态：已暂停"
@@ -199,7 +196,6 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "加载播放信息出错", e)
-            // 已处理null情况，无需额外运算符
             tvStatus.text = "加载失败：${e.message?.take(10)}"
         }
     }
